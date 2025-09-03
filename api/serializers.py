@@ -1,14 +1,23 @@
 from rest_framework import serializers
+import json
 from .models import (
-    ContactMessage, Journal, News, EditorialBoardMember, RecentIssueLink,
+    ContactMessage, ContactMessageFile, Journal, News, EditorialBoardMember, RecentIssueLink,
     Issue, Author, Keyword, Article, ArticleTranslation
 )
 
 
+class ContactMessageFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactMessageFile
+        fields = ['id', 'file', 'uploaded_at']
+
+
 class ContactMessageSerializer(serializers.ModelSerializer):
+    files = ContactMessageFileSerializer(many=True, read_only=True)
+
     class Meta:
         model = ContactMessage
-        fields = '__all__'
+        fields = ['id', 'name', 'email', 'subject', 'message', 'is_read', 'created_at', 'files']
 
 
 class JournalSerializer(serializers.ModelSerializer):
@@ -24,9 +33,11 @@ class NewsSerializer(serializers.ModelSerializer):
 
 
 class EditorialBoardMemberSerializer(serializers.ModelSerializer):
+    journal_name = serializers.CharField(source='journal.name', read_only=True)
+
     class Meta:
         model = EditorialBoardMember
-        fields = '__all__'
+        fields = ['id', 'journal', 'journal_name', 'full_name', 'position_description', 'role', 'order']
 
 
 class RecentIssueLinkSerializer(serializers.ModelSerializer):
@@ -58,10 +69,67 @@ class ArticleSerializer(serializers.ModelSerializer):
     keywords = KeywordSerializer(many=True, read_only=True)
     translations = ArticleTranslationSerializer(many=True, read_only=True)
 
+    authors = serializers.PrimaryKeyRelatedField(queryset=Author.objects.all(), many=True, write_only=True,
+                                                 required=False)
+    keywords = serializers.PrimaryKeyRelatedField(queryset=Keyword.objects.all(), many=True, write_only=True,
+                                                  required=False)
+    translations_payload = serializers.CharField(write_only=True, required=False)
+
     class Meta:
         model = Article
-        fields = ['id', 'issue', 'doi', 'pages', 'authors', 'keywords', 'translations', 'references', 'views',
-                  'article_file']
+        fields = [
+            'id', 'issue', 'doi', 'pages', 'authors', 'keywords',
+            'translations', 'translations_payload', 'references', 'views', 'article_file'
+        ]
+
+    def create(self, validated_data):
+        authors_data = validated_data.pop('authors', [])
+        keywords_data = validated_data.pop('keywords', [])
+        translations_str = validated_data.pop('translations_payload', '[]')
+
+        try:
+            translations_payload = json.loads(translations_str)
+        except json.JSONDecodeError:
+            translations_payload = []
+
+        article = Article.objects.create(**validated_data)
+
+        if authors_data:
+            article.authors.set(authors_data)
+
+        if keywords_data:
+            article.keywords.set(keywords_data)
+
+        for tr in translations_payload:
+            ArticleTranslation.objects.create(article=article, **tr)
+
+        return article
+
+    def update(self, instance, validated_data):
+        authors_data = validated_data.pop('authors', None)
+        keywords_data = validated_data.pop('keywords', None)
+        translations_str = validated_data.pop('translations_payload', None)
+
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        instance.save()
+
+        if authors_data is not None:
+            instance.authors.set(authors_data)
+
+        if keywords_data is not None:
+            instance.keywords.set(keywords_data)
+
+        if translations_str is not None:
+            try:
+                translations_payload = json.loads(translations_str)
+                instance.translations.all().delete()
+                for tr in translations_payload:
+                    ArticleTranslation.objects.create(article=instance, **tr)
+            except json.JSONDecodeError:
+                pass
+
+        return instance
 
 
 class IssueSerializer(serializers.ModelSerializer):

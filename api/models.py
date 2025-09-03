@@ -1,6 +1,5 @@
 from django.db import models
 
-
 class ContactMessage(models.Model):
     name = models.CharField(max_length=255, verbose_name="Ismi")
     email = models.EmailField(verbose_name="Email")
@@ -17,6 +16,13 @@ class ContactMessage(models.Model):
         verbose_name = "Bog'lanish xabari"
         verbose_name_plural = "Bog'lanish xabarlari"
 
+class ContactMessageFile(models.Model):
+    message = models.ForeignKey(ContactMessage, on_delete=models.CASCADE, related_name='files')
+    file = models.FileField(upload_to='contact_attachments/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.file.name
 
 class Journal(models.Model):
     name = models.CharField(max_length=255, verbose_name="Jurnal nomi")
@@ -24,7 +30,6 @@ class Journal(models.Model):
 
     def __str__(self):
         return self.name
-
 
 class News(models.Model):
     title = models.CharField(max_length=255, verbose_name="Sarlavha")
@@ -39,7 +44,6 @@ class News(models.Model):
         ordering = ['-created_at']
         verbose_name = "Yangilik"
         verbose_name_plural = "Yangiliklar"
-
 
 class EditorialBoardMember(models.Model):
     ROLE_CHOICES = (
@@ -61,7 +65,6 @@ class EditorialBoardMember(models.Model):
         verbose_name = "Tahririyat a'zosi"
         verbose_name_plural = "Tahririyat a'zolari"
 
-
 class RecentIssueLink(models.Model):
     title = models.CharField(max_length=100, verbose_name="Sarlavha (masalan, 2024 - №4)")
     link_to_issue = models.ForeignKey('Issue', on_delete=models.SET_NULL, null=True, blank=True,
@@ -75,7 +78,6 @@ class RecentIssueLink(models.Model):
         ordering = ['order']
         verbose_name = "So'nggi nashr havolasi"
         verbose_name_plural = "So'nggi nashr havolalari"
-
 
 class Issue(models.Model):
     journal = models.ForeignKey(Journal, on_delete=models.CASCADE, related_name='issues', verbose_name="Jurnal")
@@ -93,7 +95,6 @@ class Issue(models.Model):
         verbose_name = "Nashr (son)"
         verbose_name_plural = "Nashrlar (sonlar)"
 
-
 class Author(models.Model):
     last_name = models.CharField(max_length=100, verbose_name="Familiya")
     first_name = models.CharField(max_length=100, verbose_name="Ism")
@@ -108,7 +109,6 @@ class Author(models.Model):
         verbose_name = "Muallif"
         verbose_name_plural = "Mualliflar"
 
-
 class Keyword(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Nomi")
 
@@ -118,7 +118,6 @@ class Keyword(models.Model):
     class Meta:
         verbose_name = "Kalit so'z"
         verbose_name_plural = "Kalit so'zlar"
-
 
 class Article(models.Model):
     issue = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name='articles', verbose_name="Nashr")
@@ -138,7 +137,6 @@ class Article(models.Model):
         ordering = ['pages']
         verbose_name = "Maqola"
         verbose_name_plural = "Maqolalar"
-
 
 class ArticleTranslation(models.Model):
     LANGUAGE_CHOICES = (
