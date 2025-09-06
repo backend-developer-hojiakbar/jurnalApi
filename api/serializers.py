@@ -34,10 +34,12 @@ class NewsSerializer(serializers.ModelSerializer):
 
 class EditorialBoardMemberSerializer(serializers.ModelSerializer):
     journal_name = serializers.CharField(source='journal.name', read_only=True)
+    journal_short_name = serializers.CharField(source='journal.short_name', read_only=True)
 
     class Meta:
         model = EditorialBoardMember
-        fields = ['id', 'journal', 'journal_name', 'full_name', 'position_description', 'role', 'order']
+        fields = ['id', 'journal', 'journal_name', 'journal_short_name', 'full_name', 'position_description', 'role',
+                  'order']
 
 
 class RecentIssueLinkSerializer(serializers.ModelSerializer):
@@ -51,11 +53,24 @@ class AuthorSerializer(serializers.ModelSerializer):
         model = Author
         fields = '__all__'
 
+    def validate(self, data):
+        # Ensure first_name and last_name are provided
+        if not data.get('first_name') or not data.get('last_name'):
+            raise serializers.ValidationError("Ism va familiya kiritilishi shart!")
+        return data
+
 
 class KeywordSerializer(serializers.ModelSerializer):
     class Meta:
         model = Keyword
         fields = '__all__'
+
+    def validate_name(self, value):
+        # Trim whitespace and check if not empty
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Kalit so'z nomi bo'sh bo'lishi mumkin emas!")
+        return value
 
 
 class ArticleTranslationSerializer(serializers.ModelSerializer):
@@ -135,8 +150,63 @@ class ArticleSerializer(serializers.ModelSerializer):
 class IssueSerializer(serializers.ModelSerializer):
     articles = ArticleSerializer(many=True, read_only=True)
     journal_name = serializers.CharField(source='journal.name', read_only=True)
+    journal_short_name = serializers.CharField(source='journal.short_name', read_only=True)
+    current_status_display = serializers.SerializerMethodField()
+    journal_type_display = serializers.CharField(source='get_journal_type_display', read_only=True)
+    # Add fallback for journal_type if it's missing
+    journal_type = serializers.SerializerMethodField()
 
     class Meta:
         model = Issue
-        fields = ['id', 'journal', 'journal_name', 'title', 'cover_image', 'pdf_file', 'published_date', 'is_current',
+        fields = ['id', 'journal', 'journal_name', 'journal_short_name', 'journal_type', 'journal_type_display',
+                  'title', 'cover_image', 'pdf_file', 'published_date', 'is_current', 'current_status_display',
                   'articles']
+
+    def get_journal_type(self, obj):
+        # Return journal_type if set, otherwise fallback to journal.short_name
+        if obj.journal_type:
+            return obj.journal_type
+        elif obj.journal and obj.journal.short_name:
+            return obj.journal.short_name
+        return 'QX'  # Default fallback
+
+    def get_current_status_display(self, obj):
+        if obj and obj.is_current:
+            journal_type = self.get_journal_type(obj)
+            return f"Joriy nashr ({journal_type})"
+        return "Joriy emas"
+
+    def validate(self, data):
+        # Auto-set journal_type from journal if not provided
+        if 'journal_type' not in data or not data['journal_type']:
+            journal = data.get('journal')
+            if journal:
+                data['journal_type'] = journal.short_name
+
+        # Ensure only one issue per journal type can be current
+        if data.get('is_current', False):
+            journal_type = data.get('journal_type')
+            if journal_type:
+                existing_current = Issue.objects.filter(journal_type=journal_type, is_current=True)
+                if self.instance:
+                    existing_current = existing_current.exclude(pk=self.instance.pk)
+
+                if existing_current.exists():
+                    current_issue = existing_current.first()
+                    raise serializers.ValidationError({
+                        'is_current': f"Bu jurnal turi ({journal_type}) uchun allaqachon joriy nashr mavjud: {current_issue.title}. "
+                                      f"Avval uni joriy emasligini belgilang."
+                    })
+        return data
+
+    def create(self, validated_data):
+        # Ensure journal_type is set
+        if 'journal_type' not in validated_data and 'journal' in validated_data:
+            validated_data['journal_type'] = validated_data['journal'].short_name
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # Ensure journal_type is set
+        if 'journal_type' not in validated_data and 'journal' in validated_data:
+            validated_data['journal_type'] = validated_data['journal'].short_name
+        return super().update(instance, validated_data)

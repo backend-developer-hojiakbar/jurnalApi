@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class ContactMessage(models.Model):
     name = models.CharField(max_length=255, verbose_name="Ismi")
     email = models.EmailField(verbose_name="Email")
@@ -16,6 +17,7 @@ class ContactMessage(models.Model):
         verbose_name = "Bog'lanish xabari"
         verbose_name_plural = "Bog'lanish xabarlari"
 
+
 class ContactMessageFile(models.Model):
     message = models.ForeignKey(ContactMessage, on_delete=models.CASCADE, related_name='files')
     file = models.FileField(upload_to='contact_attachments/')
@@ -24,12 +26,22 @@ class ContactMessageFile(models.Model):
     def __str__(self):
         return self.file.name
 
+
 class Journal(models.Model):
     name = models.CharField(max_length=255, verbose_name="Jurnal nomi")
     short_name = models.CharField(max_length=10, unique=True, verbose_name="Qisqa nomi (masalan, QX yoki AI)")
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        verbose_name = "Jurnal"
+        verbose_name_plural = "Jurnallar"
+
+
+# Note: You should create these two journals in your database:
+# Journal.objects.get_or_create(name="O'zbekiston qishloq va suv xo'jaligi", short_name="QX")
+# Journal.objects.get_or_create(name="Agro ilm", short_name="AI")
 
 class News(models.Model):
     title = models.CharField(max_length=255, verbose_name="Sarlavha")
@@ -44,6 +56,7 @@ class News(models.Model):
         ordering = ['-created_at']
         verbose_name = "Yangilik"
         verbose_name_plural = "Yangiliklar"
+
 
 class EditorialBoardMember(models.Model):
     ROLE_CHOICES = (
@@ -65,6 +78,7 @@ class EditorialBoardMember(models.Model):
         verbose_name = "Tahririyat a'zosi"
         verbose_name_plural = "Tahririyat a'zolari"
 
+
 class RecentIssueLink(models.Model):
     title = models.CharField(max_length=100, verbose_name="Sarlavha (masalan, 2024 - №4)")
     link_to_issue = models.ForeignKey('Issue', on_delete=models.SET_NULL, null=True, blank=True,
@@ -79,8 +93,20 @@ class RecentIssueLink(models.Model):
         verbose_name = "So'nggi nashr havolasi"
         verbose_name_plural = "So'nggi nashr havolalari"
 
+
 class Issue(models.Model):
+    JOURNAL_TYPE_CHOICES = (
+        ('QX', 'qx'),
+        ('AI', 'ai'),
+    )
+
     journal = models.ForeignKey(Journal, on_delete=models.CASCADE, related_name='issues', verbose_name="Jurnal")
+    journal_type = models.CharField(
+        max_length=2,
+        choices=JOURNAL_TYPE_CHOICES,
+        verbose_name="Jurnal turi (QX/AI)",
+        help_text="Bu maydon avtomatik to'ldiriladi yoki qo'lda tanlanadi"
+    )
     title = models.CharField(max_length=255, verbose_name="Nashr sarlavhasi (masalan, 7-son, 2025)")
     cover_image = models.ImageField(upload_to='covers/', verbose_name="Muqova rasmi")
     pdf_file = models.FileField(upload_to='issues/', verbose_name="To'liq nashr (PDF)")
@@ -88,12 +114,32 @@ class Issue(models.Model):
     is_current = models.BooleanField(default=False, verbose_name="Joriy nashrmi?")
 
     def __str__(self):
-        return f"{self.journal.short_name} - {self.title}"
+        current_status = " (Joriy)" if self.is_current else ""
+        return f"{self.journal_type} - {self.title}{current_status}"
+
+    def save(self, *args, **kwargs):
+        # Auto-set journal_type based on journal if not explicitly set
+        if not self.journal_type and self.journal:
+            self.journal_type = self.journal.short_name
+
+        # Ensure only one issue per journal type can be current
+        if self.is_current:
+            Issue.objects.filter(journal_type=self.journal_type, is_current=True).exclude(pk=self.pk).update(
+                is_current=False)
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['-published_date']
         verbose_name = "Nashr (son)"
         verbose_name_plural = "Nashrlar (sonlar)"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['journal_type', 'is_current'],
+                condition=models.Q(is_current=True),
+                name='unique_current_issue_per_journal_type'
+            )
+        ]
+
 
 class Author(models.Model):
     last_name = models.CharField(max_length=100, verbose_name="Familiya")
@@ -109,6 +155,7 @@ class Author(models.Model):
         verbose_name = "Muallif"
         verbose_name_plural = "Mualliflar"
 
+
 class Keyword(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Nomi")
 
@@ -118,6 +165,7 @@ class Keyword(models.Model):
     class Meta:
         verbose_name = "Kalit so'z"
         verbose_name_plural = "Kalit so'zlar"
+
 
 class Article(models.Model):
     issue = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name='articles', verbose_name="Nashr")
@@ -137,6 +185,7 @@ class Article(models.Model):
         ordering = ['pages']
         verbose_name = "Maqola"
         verbose_name_plural = "Maqolalar"
+
 
 class ArticleTranslation(models.Model):
     LANGUAGE_CHOICES = (
