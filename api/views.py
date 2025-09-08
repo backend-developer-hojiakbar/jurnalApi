@@ -74,9 +74,13 @@ class EditorialBoardViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # Optimize queries by prefetching related journal data
+        qs = qs.select_related('journal').order_by('order', 'id')
+
         journal_short_name = self.request.query_params.get('journal')
         if journal_short_name:
-            qs = qs.filter(journal__short_name=journal_short_name)
+            # Case-insensitive filtering to handle both 'QX'/'qx' and 'AI'/'ai'
+            qs = qs.filter(journal__short_name__iexact=journal_short_name)
         return qs
 
 
@@ -106,6 +110,13 @@ class IssueViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # Optimize queries by prefetching related objects including article relationships
+        qs = qs.prefetch_related(
+            'articles__authors',
+            'articles__keywords',
+            'articles__translations'
+        ).select_related('journal')
+
         journal_type = self.request.query_params.get('journal')
         is_current = self.request.query_params.get('current')
 
@@ -199,6 +210,9 @@ class ArticleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # Optimize database queries by prefetching related objects
+        qs = qs.prefetch_related('authors', 'keywords', 'translations')
+
         issue_id = self.request.query_params.get('issue')
         journal_type = self.request.query_params.get('journal')
 
@@ -209,6 +223,25 @@ class ArticleViewSet(viewsets.ModelViewSet):
             qs = qs.filter(issue__journal__short_name__iexact=journal_type)
 
         return qs
+
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve to ensure proper data loading"""
+        instance = self.get_object()
+
+        # Debug: Print the actual data being returned
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        # Log for debugging
+        print(f"Article ID: {instance.id}")
+        print(f"Authors count: {instance.authors.count()}")
+        print(f"Authors data in response: {data.get('authors', [])}")
+        print(f"Keywords count: {instance.keywords.count()}")
+        print(f"Keywords data in response: {data.get('keywords', [])}")
+        print(f"Translations count: {instance.translations.count()}")
+        print(f"Translations data in response: {data.get('translations', [])}")
+
+        return Response(data)
 
 
 class HealthCheckView(APIView):

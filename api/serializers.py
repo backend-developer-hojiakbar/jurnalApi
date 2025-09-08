@@ -80,8 +80,8 @@ class ArticleTranslationSerializer(serializers.ModelSerializer):
 
 
 class ArticleSerializer(serializers.ModelSerializer):
-    authors = AuthorSerializer(many=True, read_only=True)
-    keywords = KeywordSerializer(many=True, read_only=True)
+    authors_read = AuthorSerializer(source='authors', many=True, read_only=True)
+    keywords_read = KeywordSerializer(source='keywords', many=True, read_only=True)
     translations = ArticleTranslationSerializer(many=True, read_only=True)
 
     authors = serializers.PrimaryKeyRelatedField(queryset=Author.objects.all(), many=True, write_only=True,
@@ -93,9 +93,22 @@ class ArticleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
         fields = [
-            'id', 'issue', 'doi', 'pages', 'authors', 'keywords',
+            'id', 'issue', 'doi', 'pages', 'authors', 'authors_read', 'keywords', 'keywords_read',
             'translations', 'translations_payload', 'references', 'views', 'article_file'
         ]
+
+    def to_representation(self, instance):
+        """Override to return authors_read and keywords_read as authors and keywords in read operations"""
+        data = super().to_representation(instance)
+        # Replace the write-only fields with read-only equivalents for output
+        authors_data = data.pop('authors_read', [])
+        keywords_data = data.pop('keywords_read', [])
+
+        # Ensure authors and keywords are properly included
+        data['authors'] = authors_data if authors_data is not None else []
+        data['keywords'] = keywords_data if keywords_data is not None else []
+
+        return data
 
     def create(self, validated_data):
         authors_data = validated_data.pop('authors', [])
