@@ -1,4 +1,19 @@
 from django.db import models
+from django.core.exceptions import ValidationError
+
+
+def validate_image_size(value):
+    """Validate that image file size is not more than 10MB"""
+    limit = 10 * 1024 * 1024  # 10MB
+    if value.size > limit:
+        raise ValidationError(f'Fayl hajmi {limit / (1024 * 1024):.0f} MB dan oshmasligi kerak. Sizning faylingiz {value.size / (1024 * 1024):.2f} MB.')
+
+
+def validate_file_size(value):
+    """Validate that file size is not more than 100MB"""
+    limit = 100 * 1024 * 1024  # 100MB
+    if value.size > limit:
+        raise ValidationError(f'Fayl hajmi {limit / (1024 * 1024):.0f} MB dan oshmasligi kerak. Sizning faylingiz {value.size / (1024 * 1024):.2f} MB.')
 
 
 class ContactMessage(models.Model):
@@ -20,7 +35,7 @@ class ContactMessage(models.Model):
 
 class ContactMessageFile(models.Model):
     message = models.ForeignKey(ContactMessage, on_delete=models.CASCADE, related_name='files')
-    file = models.FileField(upload_to='contact_attachments/')
+    file = models.FileField(upload_to='contact_attachments/', validators=[validate_file_size])
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -42,7 +57,7 @@ class Journal(models.Model):
 class News(models.Model):
     title = models.CharField(max_length=255, verbose_name="Sarlavha")
     content = models.TextField(verbose_name="Matn")
-    image = models.ImageField(upload_to='news/', blank=True, null=True, verbose_name="Rasm")
+    image = models.ImageField(upload_to='news/', blank=True, null=True, verbose_name="Rasm", validators=[validate_image_size])
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan sana")
 
     def __str__(self):
@@ -104,8 +119,8 @@ class Issue(models.Model):
         help_text="Bu maydon avtomatik to'ldiriladi yoki qo'lda tanlanadi"
     )
     title = models.CharField(max_length=255, verbose_name="Nashr sarlavhasi (masalan, 7-son, 2025)")
-    cover_image = models.ImageField(upload_to='covers/', verbose_name="Muqova rasmi")
-    pdf_file = models.FileField(upload_to='issues/', verbose_name="To'liq nashr (PDF)")
+    cover_image = models.ImageField(upload_to='covers/', verbose_name="Muqova rasmi", validators=[validate_image_size])
+    pdf_file = models.FileField(upload_to='issues/', verbose_name="To'liq nashr (PDF)", validators=[validate_file_size])
     published_date = models.DateField(verbose_name="Chop etilgan sana")
     is_current = models.BooleanField(default=False, verbose_name="Joriy nashrmi?")
 
@@ -176,7 +191,7 @@ class Article(models.Model):
     authors = models.ManyToManyField(Author, related_name='articles', verbose_name="Mualliflar")
     keywords = models.ManyToManyField(Keyword, blank=True, verbose_name="Kalit so'zlar")
     references = models.TextField(blank=True, verbose_name="Foydalanilgan adabiyotlar")
-    article_file = models.FileField(upload_to='articles/', blank=True, null=True, verbose_name="Maqola fayli (PDF)")
+    article_file = models.FileField(upload_to='articles/', blank=True, null=True, verbose_name="Maqola fayli (PDF)", validators=[validate_file_size])
     views = models.PositiveIntegerField(default=0, verbose_name="Ko'rishlar soni")
 
     def __str__(self):
