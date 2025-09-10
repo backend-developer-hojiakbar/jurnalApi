@@ -44,7 +44,9 @@ class IssueAdmin(admin.ModelAdmin):
 
 @admin.register(Author)
 class AuthorAdmin(admin.ModelAdmin):
-    search_fields = ('last_name','first_name')
+    list_display = ('last_name', 'first_name', 'patronymic', 'orcid_id', 'organization')
+    search_fields = ('last_name', 'first_name', 'patronymic', 'orcid_id')
+    list_filter = ('organization',)
 
 admin.site.register(Keyword)
 

@@ -59,6 +59,20 @@ class AuthorSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Ism va familiya kiritilishi shart!")
         return data
 
+    def validate_orcid_id(self, value):
+        """Validate ORCID ID format"""
+        if value and value.strip():
+            # Remove any spaces and validate format
+            orcid = value.strip()
+            # ORCID ID should be in format: 0000-0000-0000-0000
+            import re
+            pattern = r'^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$'
+            if not re.match(pattern, orcid):
+                raise serializers.ValidationError(
+                    "ORCID ID noto'g'ri formatda. To'g'ri format: 0000-0002-1495-3967"
+                )
+        return value
+
 
 class KeywordSerializer(serializers.ModelSerializer):
     class Meta:

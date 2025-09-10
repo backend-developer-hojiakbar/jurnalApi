@@ -39,10 +39,6 @@ class Journal(models.Model):
         verbose_name_plural = "Jurnallar"
 
 
-# Note: You should create these two journals in your database:
-# Journal.objects.get_or_create(name="O'zbekiston qishloq va suv xo'jaligi", short_name="QX")
-# Journal.objects.get_or_create(name="Agro ilm", short_name="AI")
-
 class News(models.Model):
     title = models.CharField(max_length=255, verbose_name="Sarlavha")
     content = models.TextField(verbose_name="Matn")
@@ -145,6 +141,12 @@ class Author(models.Model):
     last_name = models.CharField(max_length=100, verbose_name="Familiya")
     first_name = models.CharField(max_length=100, verbose_name="Ism")
     patronymic = models.CharField(max_length=100, blank=True, verbose_name="Otasining ismi")
+    orcid_id = models.CharField(
+        max_length=25,
+        blank=True,
+        verbose_name="ORCID ID",
+        help_text="Masalan: 0000-0002-1495-3967"
+    )
     organization = models.CharField(max_length=255, blank=True, verbose_name="Tashkilot")
     position = models.CharField(max_length=255, blank=True, verbose_name="Lavozim")
 
