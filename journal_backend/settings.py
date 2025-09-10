@@ -23,9 +23,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-@wv0o839n&m4@0h-mja3h!40&0@l$$1k6&2)#)mlr_c)46(%hv'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+# Domenlarni qo'shamiz
+ALLOWED_HOSTS = ['api.qxjurnal.uz', 'qxjurnal.uz', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -123,7 +124,10 @@ USE_TZ = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173", # Vite default porti
     "http://localhost:3000", # Create-React-App default porti
+        "https://qxjurnal.uz",
+    "http://qxjurnal.uz",
 ]
+CORS_ALLOW_CREDENTIALS = True
 
 # REST Framework sozlamalari
 REST_FRAMEWORK = {
@@ -142,6 +146,7 @@ REST_FRAMEWORK = {
 
 STATIC_URL = 'static/'
 import os
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
